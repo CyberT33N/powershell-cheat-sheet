@@ -25,8 +25,16 @@ ________
 
 # Taskbar
 
+
+
+
 ## Pin icons to taskbar
-- Not testes
+- https://learn.microsoft.com/en-us/windows/configuration/taskbar/pinned-apps?tabs=gpo&pivots=windows-11
+- Not tested
+- **This setting is under development and only applicable to Windows Insider Preview builds. T**
+
+
+
 
 Apply-TaskbarLayout.ps1
 ```
