@@ -19,6 +19,25 @@ notepad $PROFILE
 
 
 
+<br><br>
+________
+________
+<br><br>
+
+# Registry
+
+
+## Get Registry-Wert 
+
+```
+Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name "StartLayoutFile" | Select-Object -ExpandProperty StartLayoutFile
+```
+
+
+
+
+
+
 
 
 
