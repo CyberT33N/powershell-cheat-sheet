@@ -36,7 +36,13 @@ ________
 
 
 
-Apply-TaskbarLayout.ps1
+GGf. vorher:
+```
+Set-ExecutionPolicy RemoteSigned -Scope Process -Force
+```
+
+
+Apply-TaskbarLayout.ps1 (Powershell als Admin)
 ```
 # Simple PowerShell script to apply Taskbar Layout
 
@@ -118,6 +124,11 @@ TaskbarLayout.xml
 ```
 
 
+
+Explorer Neustart:
+```
+Stop-Process -Name explorer -Force; Start-Process explorer
+```
 
 
 
