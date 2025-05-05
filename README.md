@@ -15,6 +15,63 @@ notepad $PROFILE
 
 
 
+<br><br>
+________
+________
+<br><br>
+
+# Debug
+
+## VS Code
+
+<details><summary>Click to expand..</summary>
+
+Ja, du kannst auch PowerShell-Skripte in **VSCode** debuggen, aber der Prozess ist ein wenig anders als bei Node.js. Hier sind die Schritte, um ein PowerShell-Skript zu debuggen:
+
+1. **PowerShell-Erweiterung installieren**:
+   - Stelle sicher, dass du die **PowerShell**-Erweiterung in VSCode installiert hast. Diese ist notwendig, um die PowerShell-Skripte korrekt zu interpretieren.
+
+2. **Launch-Konfiguration einrichten**:
+   - Öffne die **Run and Debug**-Ansicht (Strg+Shift+D) und klicke auf **Add Configuration**.
+   - Wähle die Option für **PowerShell** aus, um eine neue Konfiguration zu erstellen. Dadurch wird eine `launch.json`-Datei erstellt, die du anpassen kannst.
+
+3. **Breakpoint setzen**:
+   - Setze Breakpoints in deinem Skript, indem du auf den linken Rand der Zeile klickst, wo du anhalten möchtest.
+
+4. **Debuggen starten**:
+   - Starte das Debugging durch Klicken auf den grünen Play-Button oder drücke F5. Das PowerShell-Skript wird ausgeführt, und die Ausführung wird an den Breakpoints gestoppt, wo du dann variablen und den Stack untersuchen kannst.
+
+Mit dieser Methode kannst du PowerShell-Skripte ähnlich wie Node.js-Dateien debuggen.
+
+
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
