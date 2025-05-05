@@ -2,9 +2,9 @@
 
 
 
-# $PROFILE#
+# $PROFILE
 - Same like ~/.bashrc in linux
-- 
+  
 ```powershell
 notepad $PROFILE
 ```
@@ -23,6 +23,7 @@ ________
 # Debug
 
 ## VS Code
+- https://devblogs.microsoft.com/scripting/debugging-powershell-script-in-visual-studio-code-part-1/
 
 <details><summary>Click to expand..</summary>
 
