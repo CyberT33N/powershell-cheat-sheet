@@ -77,10 +77,10 @@ powershell -ExecutionPolicy Bypass -File "%~dp0Main.ps1"
 
 Dann kannst du `install.bat` doppelklicken – Skript wird ausgeführt trotz PS-Sperre.
 
-</details
+</details>
 
 
-</details
+</details>
 
 
 
