@@ -133,9 +133,122 @@ ________
 
 <details><summary>Click to expand..</summary>
 
+
+
+# Parsing Script:
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+// __dirname is now C:\...\scripts\install
+const mainScriptPath = path.join(__dirname, 'Main.ps1'); // Main.ps1 is in the same directory
+const buildDir = path.join(__dirname, '..', 'build'); // Go up one level for the build output directory
+const outputScriptPath = path.join(buildDir, 'install.ps1');
+
+const startMarker = '# --- BEGIN MODULE IMPORTS ---';
+const endMarker = '# --- END MODULE IMPORTS ---';
+
+console.log(`Starting build process...`);
+
+try {
+    // 1. Read the Main.ps1 content
+    console.log(`Reading main script: ${mainScriptPath}`);
+    let mainContent = fs.readFileSync(mainScriptPath, 'utf8');
+
+    // 2. Find the module import block
+    const startIndex = mainContent.indexOf(startMarker);
+    const endIndex = mainContent.indexOf(endMarker);
+
+    if (startIndex === -1 || endIndex === -1) {
+        throw new Error('Could not find module import markers in Main.ps1');
+    }
+
+    // Extract the original import block to find module paths
+    const importBlockText = mainContent.substring(startIndex, endIndex + endMarker.length);
+
+    // Regex to find the dot-sourced paths within the original block
+    const moduleImportRegex = /\. "\$ScriptRoot\\([^\s"]+)"/g;
+    let match;
+    const modulePaths = [];
+
+    // Find all matches in the original import block text
+    while ((match = moduleImportRegex.exec(importBlockText)) !== null) {
+        modulePaths.push(match[1]);
+    }
+
+    if (modulePaths.length === 0) {
+        console.warn('Warning: Found import markers, but no module import lines matched the expected pattern inside.');
+    } else {
+        console.log(`Found ${modulePaths.length} module(s) to inline.`);
+    }
+
+    // 3. Read content of each module
+    console.log('Reading module files...');
+    const moduleContents = [];
+    for (const relativePathRaw of modulePaths) {
+        // The path extracted (e.g., Modules/Logging/Logging.ps1) is relative to $ScriptRoot (install dir)
+        // which is now __dirname.
+        const relativeModulePath = relativePathRaw.replace(/\\/g, '/');
+        const modulePath = path.join(__dirname, relativeModulePath); // Module path relative to current dir
+        console.log(`  - Reading module: ${modulePath}`);
+        try {
+            const moduleContent = fs.readFileSync(modulePath, 'utf8');
+            moduleContents.push(
+`
+# --- Start Content from ${relativeModulePath} ---
+${moduleContent.trim()}
+# --- End Content from ${relativeModulePath} ---
+`
+            );
+        } catch (moduleError) {
+            throw new Error(`Failed to read module ${modulePath}: ${moduleError.message}`);
+        }
+    }
+
+    // 4. Replace the import block with module contents
+    console.log('Replacing import block with module content...');
+    const combinedModules = moduleContents.join('\n');
+
+    mainContent =
+        mainContent.substring(0, startIndex) +
+        '# --- MODULES INLINED BY BUILD PROCESS ---' +
+        combinedModules +
+        '\n# --- END INLINED MODULES ---' +
+        mainContent.substring(endIndex + endMarker.length);
+
+    // 5. Create build directory if it doesn't exist
+    if (!fs.existsSync(buildDir)) {
+        console.log(`Creating build directory: ${buildDir}`);
+        fs.mkdirSync(buildDir, { recursive: true });
+    }
+
+    // 6. Write the consolidated script to the build directory
+    console.log(`Writing consolidated script to: ${outputScriptPath}`);
+    fs.writeFileSync(outputScriptPath, mainContent, 'utf8');
+
+    console.log('✅ Build process completed successfully!');
+
+} catch (error) {
+    console.error(`❌ Build failed: ${error.message}`);
+    console.error(error.stack);
+    process.exit(1);
+}
+```
+
+
+
+
+
+
+
+
+<br><br>
+<br><br>
+
+
+
 - **Nich testest bisher was unten steht**
 
-Okay, verstanden. Du möchtest also sehen, wie der Build-Prozess mit `Invoke-Build` und `psake` aussehen würde, wenn du eine zentrale `core.ps1` hast, die (während der Entwicklung) die Funktionen aus anderen Dateien "importiert" (via Dot-Sourcing).
 
 Das Grundprinzip bleibt gleich: Die Build-Tools orchestrieren das Zusammenfügen der Inhalte. Im finalen, gebündelten Skript sind die Dot-Sourcing-Aufrufe aus `core.ps1` überflüssig, da der *Inhalt* der anderen Dateien bereits im selben Skript-Scope vorhanden ist. Der Build-Prozess muss sicherstellen, dass die Dateien mit den Funktionsdefinitionen *vor* dem Code aus `core.ps1` (der diese Funktionen aufruft) in die Zieldatei geschrieben werden.
 
