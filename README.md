@@ -26,7 +26,7 @@ ________
 <br><br>
 
 
-# ExecutionPolicy
+# Execution Policy
 
 
 
@@ -44,6 +44,40 @@ Set-ExecutionPolicy Restricted -Scope LocalMachine
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 Set-ExecutionPolicy Restricted -Scope LocalMachine
 ```
+
+
+<br><br>
+
+## 🧨 Der Trick: CMD → PowerShell → Bypass für eine Session → Skript ausführen
+
+<details><summary>Click to expand..</summary>
+
+### 🔧 Befehl (in `cmd.exe`):
+
+```cmd
+powershell -ExecutionPolicy Bypass -File "C:\git\privadent\scripts\install\Main.ps1"
+```
+
+---
+
+## 🔍 Was passiert hier?
+
+- `-ExecutionPolicy Bypass` → ignoriert alle Policies **nur in dieser Instanz**
+- `-File ...` → führt dein Skript direkt aus
+- Kein Einfluss auf globale oder persistente ExecutionPolicy – **clean und temporär**
+
+---
+
+## 🧠 Optionaler Bonus: In `.bat` verpacken
+
+```bat
+@echo off
+powershell -ExecutionPolicy Bypass -File "%~dp0Main.ps1"
+```
+
+Dann kannst du `install.bat` doppelklicken – Skript wird ausgeführt trotz PS-Sperre.
+
+</details
 
 
 </details
