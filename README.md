@@ -15,6 +15,63 @@ notepad $PROFILE
 
 
 
+
+
+
+
+
+<br><br>
+________
+________
+<br><br>
+
+
+# ExecutionPolicy
+
+
+
+<details><summary>Click to expand..</summary>
+
+# Ausführen von PowerShell-Skript deaktivieren
+
+```
+Set-ExecutionPolicy Restricted -Scope CurrentUser
+Set-ExecutionPolicy Restricted -Scope LocalMachine
+```
+
+# Ausführen von PowerShell-Skript aktivieren
+```
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+Set-ExecutionPolicy Restricted -Scope LocalMachine
+```
+
+
+</details
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <br><br>
 ________
 ________
