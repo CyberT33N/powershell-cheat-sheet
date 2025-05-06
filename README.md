@@ -20,6 +20,408 @@ ________
 ________
 <br><br>
 
+# Testing
+- https://github.com/pester/Pester
+
+
+
+
+
+
+
+
+
+
+<br><br>
+________
+________
+<br><br>
+
+# Building
+
+
+<details><summary>Click to expand..</summary>
+
+- **Nich testest bisher was unten steht**
+
+Okay, verstanden. Du möchtest also sehen, wie der Build-Prozess mit `Invoke-Build` und `psake` aussehen würde, wenn du eine zentrale `core.ps1` hast, die (während der Entwicklung) die Funktionen aus anderen Dateien "importiert" (via Dot-Sourcing).
+
+Das Grundprinzip bleibt gleich: Die Build-Tools orchestrieren das Zusammenfügen der Inhalte. Im finalen, gebündelten Skript sind die Dot-Sourcing-Aufrufe aus `core.ps1` überflüssig, da der *Inhalt* der anderen Dateien bereits im selben Skript-Scope vorhanden ist. Der Build-Prozess muss sicherstellen, dass die Dateien mit den Funktionsdefinitionen *vor* dem Code aus `core.ps1` (der diese Funktionen aufruft) in die Zieldatei geschrieben werden.
+
+**Annahme für die Beispiele:**
+
+*   Projektstruktur wie zuvor:
+    ```
+    MeinPowerShellProjekt/
+    ├── src/
+    │   ├── modules/
+    │   │   ├── 01-Check-Network.ps1
+    │   │   ├── 02-Install-App.ps1
+    │   │   └── ... (weitere Funktionsdateien)
+    │   ├── lib/
+    │   │   └── Helpers.ps1  (evtl. Hilfsfunktionen)
+    │   └── core.ps1        # Deine Hauptdatei, die Funktionen aus modules/lib aufruft
+    │
+    ├── build/              # Ort für Build-Skripte (oder im Root)
+    │
+    └── dist/               # Ausgabeordner
+        └── Deploy-Skript.ps1
+    ```
+*   Deine `src/core.ps1` enthält die Hauptlogik und *könnte* während der Entwicklung Zeilen wie `. "$PSScriptRoot\modules\01-Check-Network.ps1"` enthalten (die aber im Build-Ergebnis irrelevant sind, da die Funktion `Test-NetworkConnectivity` dann direkt verfügbar ist).
+*   Die Funktionsdateien (`modules/*.ps1`, `lib/*.ps1`) enthalten hauptsächlich `function ... { ... }` Blöcke.
+
+---
+
+**Beispiel 1: Mit `Invoke-Build`**
+
+<details><summary>Click to expand..</summary>
+
+1.  **Installation:** `Install-Module InvokeBuild -Scope CurrentUser`
+2.  **Build-Skript erstellen:** Erstelle eine Datei im Root deines Projekts oder im `build`-Ordner, z.B. `MeinProjekt.build.ps1`.
+
+```powershell
+# MeinProjekt.build.ps1 (Beispiel für Invoke-Build)
+#Requires -Modules InvokeBuild
+
+# --- Konfiguration ---
+$ProjectRoot = $PSScriptRoot
+$SourcePath = Join-Path $ProjectRoot "src"
+$DistPath = Join-Path $ProjectRoot "dist"
+$OutputFileName = "Deploy-Skript.ps1"
+$ZielDatei = Join-Path $DistPath $OutputFileName
+$CoreFile = Join-Path $SourcePath "core.ps1" # Deine Haupt-Skriptdatei
+
+# --- Tasks ---
+
+# Task zum Aufräumen des Ausgabeordners
+task Clean {
+    Write-Host "Aufräumen des Ausgabeordners: $DistPath"
+    if (Test-Path $DistPath) {
+        Remove-Item -Path $DistPath -Recurse -Force
+    }
+    New-Item -Path $DistPath -ItemType Directory -Force | Out-Null
+}
+
+# Task zum Bündeln der Skripte
+task Bundle -Depends Clean { # Stellt sicher, dass Clean vorher läuft
+    Write-Host "Starte Bündelungsprozess..."
+
+    # 1. Finde alle Funktionsdateien (alles außer core.ps1)
+    #    Sortiere sie, um eine konsistente Reihenfolge sicherzustellen (z.B. nach Name)
+    $FunktionsDateien = Get-ChildItem -Path $SourcePath -Include *.ps1 -Recurse | Where-Object { $_.FullName -ne $CoreFile } | Sort-Object Name
+
+    # 2. Definiere die gesamte Reihenfolge: Erst Funktionen, dann Core-Logik
+    $DateienZumZusammenfuehren = $FunktionsDateien + (Get-Item $CoreFile)
+
+    Write-Host "Folgende Dateien werden in '$ZielDatei' zusammengeführt:"
+    $DateienZumZusammenfuehren | ForEach-Object { Write-Host "- $($_.FullName)" }
+
+    # 3. Header für die Zieldatei erstellen
+    $Header = @"
+# --- Automatisch generiertes Skript (Invoke-Build) ---
+# Quelle: $SourcePath
+# Erstellt am: $(Get-Date)
+# NICHT DIREKT BEARBEITEN! Änderungen in 'src' vornehmen und neu bauen.
+# ---
+
+"@
+    Set-Content -Path $ZielDatei -Value $Header -Encoding UTF8 # UTF8 empfohlen
+
+    # 4. Inhalte zusammenfügen
+    foreach ($Datei in $DateienZumZusammenfuehren) {
+        Write-Host "Füge Inhalt hinzu: $($Datei.Name)"
+        $Inhalt = Get-Content -Path $Datei.FullName -Raw
+        # Optional: Kommentar hinzufügen, woher der Code stammt
+        $InhaltMitMarker = @"
+
+# --- Beginn Inhalt von: $($Datei.Name) ---
+$Inhalt
+# --- Ende Inhalt von: $($Datei.Name) ---
+
+"@
+        Add-Content -Path $ZielDatei -Value $InhaltMitMarker -Encoding UTF8
+    }
+
+    Write-Host "Bündelung erfolgreich! '$ZielDatei' erstellt."
+}
+
+# Standard-Task definieren (wird ausgeführt, wenn nur 'Invoke-Build' aufgerufen wird)
+task . -Depends Bundle
+
+# --- Ausführung ---
+# Navigiere im Terminal zum Projektordner (wo die .build.ps1 liegt) und führe aus:
+# Invoke-Build                  (Führt den Standard-Task '.', also Bundle, aus)
+# Invoke-Build Bundle           (Führt explizit den Bundle-Task aus, inkl. Clean-Dependency)
+# Invoke-Build Clean            (Führt nur den Clean-Task aus)
+```
+
+**Ausführung:**
+Öffne PowerShell im Projektverzeichnis (`MeinPowerShellProjekt/`) und führe `Invoke-Build` aus.
+
+
+</details>
+
+
+
+
+
+
+
+
+
+<br><br><br><br>
+
+
+
+
+
+
+**Beispiel 2: Mit `psake`**
+
+<details><summary>Click to expand..</summary>
+
+1.  **Installation:** `Install-Module psake -Scope CurrentUser`
+2.  **Build-Skript erstellen:** Erstelle eine Datei namens `psake.ps1` (Standardname) oder einen anderen Namen (z.B. `build.ps1`) im Root deines Projekts.
+
+```powershell
+# psake.ps1 (Beispiel für psake)
+# Requires -Modules psake # Informell, psake prüft das nicht streng
+
+# --- Eigenschaften (Variablen) ---
+Properties {
+    $ProjectRoot = $PSScriptRoot
+    $SourcePath = Join-Path $ProjectRoot "src"
+    $DistPath = Join-Path $ProjectRoot "dist"
+    $OutputFileName = "Deploy-Skript.ps1"
+    $ZielDatei = Join-Path $DistPath $OutputFileName
+    $CoreFile = Join-Path $SourcePath "core.ps1"
+}
+
+# --- Tasks ---
+
+Task Clean {
+    Assert (Test-Path $DistPath -PathType Container) "Ausgabeordner $DistPath existiert bereits, wird gelöscht." -ContinueOnError # Psake's Assert
+    Write-Host "Aufräumen des Ausgabeordners: $DistPath"
+    if (Test-Path $DistPath) {
+        Remove-Item -Path $DistPath -Recurse -Force
+    }
+    New-Item -Path $DistPath -ItemType Directory -Force | Out-Null
+}
+
+Task Bundle -depends Clean { # Definiert Abhängigkeit zu Clean
+    Write-Host "Starte Bündelungsprozess..."
+
+    # 1. Finde Funktionsdateien (alles außer core.ps1), sortiert
+    $FunktionsDateien = Get-ChildItem -Path $SourcePath -Include *.ps1 -Recurse | Where-Object { $_.FullName -ne $CoreFile } | Sort-Object Name
+
+    # 2. Definiere gesamte Reihenfolge
+    $DateienZumZusammenfuehren = $FunktionsDateien + (Get-Item $CoreFile)
+
+    Write-Host "Folgende Dateien werden in '$ZielDatei' zusammengeführt:"
+    $DateienZumZusammenfuehren | ForEach-Object { Write-Host "- $($_.FullName)" }
+
+    # 3. Header für Zieldatei
+    $Header = @"
+# --- Automatisch generiertes Skript (psake) ---
+# Quelle: $SourcePath
+# Erstellt am: $(Get-Date)
+# NICHT DIREKT BEARBEITEN! Änderungen in 'src' vornehmen und neu bauen.
+# ---
+
+"@
+    Set-Content -Path $ZielDatei -Value $Header -Encoding UTF8
+
+    # 4. Inhalte zusammenfügen
+    foreach ($Datei in $DateienZumZusammenfuehren) {
+        Write-Host "Füge Inhalt hinzu: $($Datei.Name)"
+        $Inhalt = Get-Content -Path $Datei.FullName -Raw
+        $InhaltMitMarker = @"
+
+# --- Beginn Inhalt von: $($Datei.Name) ---
+$Inhalt
+# --- Ende Inhalt von: $($Datei.Name) ---
+
+"@
+        Add-Content -Path $ZielDatei -Value $InhaltMitMarker -Encoding UTF8
+    }
+
+    Write-Host "Bündelung erfolgreich! '$ZielDatei' erstellt."
+}
+
+# Standard-Task definieren
+Task Default -depends Bundle {
+    Write-Host "psake Build erfolgreich abgeschlossen."
+}
+
+# --- Ausführung ---
+# Navigiere im Terminal zum Projektordner (wo die psake.ps1 liegt) und führe aus:
+# Invoke-Psake                  (Führt den Task 'Default' aus)
+# Invoke-Psake Bundle           (Führt explizit den Bundle-Task aus, inkl. Clean-Dependency)
+# Invoke-Psake -BuildFile .\build.ps1 Bundle (Wenn die Datei nicht psake.ps1 heißt)
+```
+
+**Ausführung:**
+Öffne PowerShell im Projektverzeichnis (`MeinPowerShellProjekt/`) und führe `Invoke-Psake` aus (wenn die Datei `psake.ps1` heißt) oder `Invoke-Psake -BuildFile DEIN_DATEINAME.ps1`.
+
+---
+
+**Vergleich und Fazit:**
+
+*   **Ähnlichkeit:** Beide Tools verfolgen einen ähnlichen Ansatz mit Tasks und Abhängigkeiten. Die Kernlogik des Dateisammelns und -zusammenfügens ist in beiden Fällen fast identisch.
+*   **Syntax:** `Invoke-Build` verwendet `task NAME { Skriptblock }` und eine spezielle Syntax für den Default-Task (`task .`). `psake` verwendet `Task NAME -depends TASK { Skriptblock }` und einen `Properties { }` Block für Variablen.
+*   **Verbreitung/Community:** Beide sind etabliert. `Invoke-Build` ist etwas neuer und vielleicht "PowerShell-iger" in seiner Syntax. `psake` orientiert sich stärker an klassischen Build-Tools wie Rake/Make.
+*   **Funktionen:** Beide bieten mehr als nur Task-Ausführung (z.B. Parameterübergabe an Tasks, komplexere Abhängigkeitsketten, Frameworks für Tests etc.).
+*   **Wahl:** Für dein Szenario sind beide hervorragend geeignet. Es ist oft eine Frage der persönlichen Präferenz, welche Syntax oder welches Ökosystem einem besser gefällt.
+
+Mit beiden Ansätzen erreichst du dein Ziel:
+1.  **Lokal modular arbeiten:** In `src/` mit `core.ps1` und vielen kleinen Funktionsdateien.
+2.  **Build-Prozess:** Ein klar definierter Schritt (z.B. `Invoke-Build` oder `Invoke-Psake`), der die Dateien zu `dist/Deploy-Skript.ps1` zusammenführt.
+3.  **Clean Deployment:** Nur die eine `Deploy-Skript.ps1` wird verteilt.
+ 
+
+
+</details>
+
+
+
+
+
+
+
+
+
+<br><br><br><br>
+
+
+
+
+
+## ✅ **Variante 3: PS2EXE – der PowerShell-Compiler**
+
+
+<details><summary>Click to expand..</summary>
+  
+Du entwickelst modular in mehreren `.ps1`-Dateien. Deine `Main.ps1` ruft sie zusammen. Dann kompiliert `ps2exe` **alles** zu einer `.exe`.
+
+
+
+---
+
+
+
+### 📁 Beispielstruktur
+
+
+
+```
+MyPowerTool/
+├── modules/
+│   ├── 01-Check-Network.ps1
+│   ├── 02-Install-App.ps1
+│   ├── 03-Write-Env.ps1
+│   ├── 04-Set-Registry.ps1
+│   ├── 05-Cleanup.ps1
+├── Main.ps1
+```
+
+
+
+### 🧠 Inhalt: `Main.ps1`
+
+
+
+```powershell
+# Main.ps1 – Einstiegspunkt
+. "$PSScriptRoot\modules\01-Check-Network.ps1"
+. "$PSScriptRoot\modules\02-Install-App.ps1"
+. "$PSScriptRoot\modules\03-Write-Env.ps1"
+. "$PSScriptRoot\modules\04-Set-Registry.ps1"
+. "$PSScriptRoot\modules\05-Cleanup.ps1"
+
+
+
+Write-Host "Alles erledigt ✅"
+```
+
+
+
+### ⚙️ Installation & Kompilierung
+
+
+
+```powershell
+Install-Module -Name ps2exe -Scope CurrentUser
+```
+
+
+
+Dann:
+
+
+
+```powershell
+Invoke-ps2exe .\Main.ps1 .\installer.exe
+```
+
+
+
+Oder wenn du kein Terminal willst:  
+> Es gibt auch ein GUI-Tool: `ps2exe-GUI.ps1` → [GitHub-Link](https://github.com/MScholtes/PS2EXE)
+
+
+
+---
+
+
+
+### ✅ Vorteile
+
+
+
+- Eine **einzige ausführbare `.exe`**
+- **Keine PowerShell notwendig** auf der Zielmaschine
+- Kann **silent** laufen (`-noConsole`)
+- Digitale Signatur möglich
+- Keine Module, keine Abhängigkeiten, keine Fragen
+
+
+ 
+
+</details>
+
+
+
+
+
+
+
+
+
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<br><br>
+________
+________
+<br><br>
+
 # Debug
 
 ## VS Code
