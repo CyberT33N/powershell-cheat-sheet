@@ -14,7 +14,24 @@ notepad $PROFILE
 
 
 
+br><br>
+________
+________
+<br><br>
 
+
+# Symlink
+
+
+Run Powershell as admin
+```
+$linkDir = ".cursor\commands\eslint\rules\no-restricted-syntax"
+$target  = "..\..\..\..\..\src\modules\eslint\rules\no-restricted-syntax\__prompts__\add.md"
+
+Push-Location $linkDir
+New-Item -ItemType SymbolicLink -Path "add.md" -Target $target
+Pop-Location
+```
 
 
 
