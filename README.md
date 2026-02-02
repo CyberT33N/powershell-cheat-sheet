@@ -34,6 +34,26 @@ Pop-Location
 ```
 
 
+# Example #2
+
+```
+$repoRoot = "C:\Projects\cheat-sheets\ai\prompts-cheat-sheet"
+
+# Quelle (die Datei, die du wirklich pflegst)
+$source = Join-Path $repoRoot "IDE\programming-languages\typescript\architectures\module-structure\module-first\no-breaking\interactive\split.md"
+
+# Link (die "Architecture"-Datei in .cursor\commands)
+$linkDir  = "C:\Users\xxxxxxxxxxx\.cursor\commands"
+$linkName = "[PROMPT] - [TS] - Split - Full Files - Module-First Architecture.md"
+$linkPath = Join-Path $linkDir $linkName
+
+if (Test-Path -LiteralPath $linkPath) {
+  Remove-Item -LiteralPath $linkPath -Force
+}
+
+New-Item -ItemType SymbolicLink -Path $linkPath -Target $source
+```
+
 
 
 
